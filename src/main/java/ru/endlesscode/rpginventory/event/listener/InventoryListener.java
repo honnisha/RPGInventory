@@ -454,6 +454,9 @@ public class InventoryListener implements Listener {
         }
 
         if (InventoryAPI.isRPGInventory(inventory)) {
+//            if (RPGInventory.getInstance().onMysql() && player instanceof Player) {
+//                InventoryManager.loadPlayerInventory((Player) player);
+//            }
             PlayerWrapper playerWrapper = (PlayerWrapper) inventory.getHolder();
             InventoryManager.syncQuickSlots(playerWrapper);
             InventoryManager.syncInfoSlots(playerWrapper);
@@ -471,6 +474,10 @@ public class InventoryListener implements Listener {
             }
 
             playerWrapper.onClose();
+            HumanEntity player = event.getPlayer();
+            if (RPGInventory.getInstance().onMysql() && player instanceof Player) {
+                InventoryManager.savePlayerInventory((Player) player);
+            }
         }
     }
 

@@ -132,6 +132,9 @@ public class BackpackListener implements Listener {
 
         backpack.onUse();
         playerWrapper.setBackpack(null);
+        if (RPGInventory.getInstance().onMysql()) {
+            BackpackManager.saveBackpacks(backpack.getId());
+        }
     }
 
     @EventHandler(ignoreCancelled = true)

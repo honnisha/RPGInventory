@@ -19,13 +19,12 @@ import ru.endlesscode.rpginventory.utils.FileUtils;
 import ru.endlesscode.rpginventory.utils.ItemUtils;
 import ru.endlesscode.rpginventory.utils.NbtFactoryMirror;
 
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
 
 /**
@@ -33,6 +32,50 @@ import java.util.zip.GZIPInputStream;
  */
 @Deprecated
 class LegacySerialization {
+
+    @NotNull
+    static PlayerWrapper loadPlayer(Player player, @NotNull String data) throws IOException {
+        PlayerWrapper playerWrapper = new PlayerWrapper(player);
+        Inventory inventory = playerWrapper.getInventory();
+        byte[] temp = Base64.getDecoder().decode(data);
+        ByteArrayInputStream swapStream = new ByteArrayInputStream(temp);
+        try (DataInputStream dataInput = new DataInputStream(new GZIPInputStream(swapStream))) {
+            NbtCompound playerNbt = NbtBinarySerializer.DEFAULT.deserializeCompound(dataInput);
+
+            playerWrapper.setBuyedSlots(playerNbt.getInteger("buyed-slots"));
+            playerNbt.remove("buyed-slots");
+
+            NbtCompound itemsNbt = playerNbt.containsKey("slots") ? playerNbt.getCompound("slots") : playerNbt;
+
+            for (Slot slot : SlotManager.instance().getSlots()) {
+                if (itemsNbt.containsKey(slot.getName())) {
+                    NbtCompound slotNbt = itemsNbt.getCompound(slot.getName());
+                    if (slot.getSlotType() != Slot.SlotType.valueOf(slotNbt.getString("type"))) {
+                        continue;
+                    }
+
+                    if (slotNbt.containsKey("buyed")) {
+                        playerWrapper.setBuyedSlots(slot.getName());
+                    }
+
+                    NbtCompound itemListNbt = slotNbt.getCompound("items");
+                    List<ItemStack> itemList = new ArrayList<>();
+                    for (String key : itemListNbt.getKeys()) {
+                        itemList.add(nbtToItemStack(itemListNbt.getCompound(key)));
+                    }
+
+                    List<Integer> slotIds = slot.getSlotIds();
+                    for (int i = 0; i < slotIds.size(); i++) {
+                        if (itemList.size() > i) {
+                            inventory.setItem(slotIds.get(i), itemList.get(i));
+                        }
+                    }
+                }
+            }
+        }
+
+        return playerWrapper;
+    }
 
     @NotNull
     static PlayerWrapper loadPlayer(Player player, @NotNull Path file) throws IOException {
@@ -75,6 +118,35 @@ class LegacySerialization {
         }
 
         return playerWrapper;
+    }
+
+    @Nullable
+    static Backpack loadBackpack(@NotNull Map.Entry<String, String> data) throws IOException {
+        Backpack backpack;
+        byte[] temp = Base64.getDecoder().decode(data.getValue());
+        ByteArrayInputStream stream = new ByteArrayInputStream(temp);
+        try (DataInputStream dataInput = new DataInputStream(new GZIPInputStream(stream))) {
+            NbtCompound nbtList = NbtBinarySerializer.DEFAULT.deserializeCompound(dataInput);
+
+            BackpackType type = BackpackManager.getBackpackType(nbtList.getString("type"));
+            if (type == null) {
+                return null;
+            }
+
+            long lastUse = (nbtList.containsKey("last-use")) ? nbtList.getLong("last-use") : System.currentTimeMillis();
+            backpack = new Backpack(type, UUID.fromString(FileUtils.stripExtension(data.getKey())));
+            backpack.setLastUse(lastUse);
+            NbtCompound itemList = nbtList.getCompound("contents");
+            ItemStack[] contents = new ItemStack[type.getSize()];
+            for (int i = 0; i < type.getSize() && itemList.containsKey(i + ""); i++) {
+                NbtCompound compound = itemList.getCompound(i + "");
+                contents[i] = compound == null ? new ItemStack(Material.AIR) : nbtToItemStack(compound);
+            }
+
+            backpack.setContents(contents);
+        }
+
+        return backpack;
     }
 
     @Nullable

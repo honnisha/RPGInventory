@@ -18,6 +18,7 @@
 
 package ru.endlesscode.rpginventory.inventory;
 
+import com.google.gson.Gson;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
@@ -46,6 +47,7 @@ import ru.endlesscode.rpginventory.item.ItemManager;
 import ru.endlesscode.rpginventory.item.Texture;
 import ru.endlesscode.rpginventory.misc.config.Config;
 import ru.endlesscode.rpginventory.misc.serialization.Serialization;
+import ru.endlesscode.rpginventory.mysql.MysqlConn;
 import ru.endlesscode.rpginventory.pet.PetManager;
 import ru.endlesscode.rpginventory.pet.PetType;
 import ru.endlesscode.rpginventory.resourcepack.ResourcePackModule;
@@ -490,6 +492,9 @@ public class InventoryManager {
     }
 
     public static boolean isNewPlayer(@NotNull Player player) {
+        if (RPGInventory.getInstance().onMysql()) {
+            return MysqlConn.checkNull(MysqlConn.TableInventory, player.getUniqueId().toString());
+        }
         Path dataFolder = RPGInventory.getInstance().getDataFolder().toPath();
         return Files.notExists(dataFolder.resolve("inventories/" + player.getUniqueId() + ".inv"));
     }
@@ -501,19 +506,36 @@ public class InventoryManager {
         }
 
         try {
-            Path dataFolder = RPGInventory.getInstance().getDataPath();
-            Path folder = dataFolder.resolve("inventories");
-            Files.createDirectories(folder);
-
-            // Load inventory from file
-            Path file = folder.resolve(player.getUniqueId() + ".inv");
-
             PlayerWrapper playerWrapper = null;
-            if (Files.exists(file)) {
-                playerWrapper = Serialization.loadPlayerOrNull(player, file);
-                if (playerWrapper == null) {
-                    Log.s("Error on loading {0}''s inventory.", player.getName());
-                    Log.s("Will be created new inventory. Old file was renamed.");
+            if (RPGInventory.getInstance().onMysql()) {
+                String uuid = player.getUniqueId().toString();
+                if (!MysqlConn.checkNull(MysqlConn.TableInventory, uuid)) {
+                    String data = MysqlConn.getData(MysqlConn.TableInventory, uuid);
+                    if (data == null) {
+                        Log.s("Error on loading {0}''s inventory.", player.getName());
+                        Log.s("Will be created new inventory. Old file was renamed.");
+                    } else {
+                        playerWrapper = Serialization.loadPlayerOrNull(player, data);
+                        if (playerWrapper == null) {
+                            Log.s("Error on loading {0}''s inventory.", player.getName());
+                            Log.s("Will be created new inventory. Old file was renamed.");
+                        }
+                    }
+                }
+            } else {
+                Path dataFolder = RPGInventory.getInstance().getDataPath();
+                Path folder = dataFolder.resolve("inventories");
+                Files.createDirectories(folder);
+
+                // Load inventory from file
+                Path file = folder.resolve(player.getUniqueId() + ".inv");
+
+                if (Files.exists(file)) {
+                    playerWrapper = Serialization.loadPlayerOrNull(player, file);
+                    if (playerWrapper == null) {
+                        Log.s("Error on loading {0}''s inventory.", player.getName());
+                        Log.s("Will be created new inventory. Old file was renamed.");
+                    }
                 }
             }
 
@@ -561,14 +583,24 @@ public class InventoryManager {
 
         PlayerWrapper playerWrapper = InventoryManager.INVENTORIES.get(player.getUniqueId());
         try {
-            Path dataFolder = RPGInventory.getInstance().getDataPath();
-            Path folder = dataFolder.resolve("inventories");
-            Files.createDirectories(folder);
+            if (RPGInventory.getInstance().onMysql()) {
+                String data = Serialization.save(playerWrapper.createSnapshot());
+                String uuid = player.getUniqueId().toString();
+                if (MysqlConn.checkNull(MysqlConn.TableInventory, uuid)) {
+                    MysqlConn.setData(MysqlConn.TableInventory, uuid, data);
+                } else {
+                    MysqlConn.update(MysqlConn.TableInventory, uuid, data);
+                }
+            } else {
+                Path dataFolder = RPGInventory.getInstance().getDataPath();
+                Path folder = dataFolder.resolve("inventories");
+                Files.createDirectories(folder);
 
-            Path file = folder.resolve(player.getUniqueId() + ".inv");
-            Files.deleteIfExists(file);
+                Path file = folder.resolve(player.getUniqueId() + ".inv");
+                Files.deleteIfExists(file);
 
-            Serialization.save(playerWrapper.createSnapshot(), file);
+                Serialization.save(playerWrapper.createSnapshot(), file);
+            }
         } catch (IOException | NullPointerException e) {
             Log.w(e, "Error on inventory save");
         }

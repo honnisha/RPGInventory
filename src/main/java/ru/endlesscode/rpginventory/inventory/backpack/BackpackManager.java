@@ -38,6 +38,7 @@ import ru.endlesscode.rpginventory.inventory.slot.SlotManager;
 import ru.endlesscode.rpginventory.item.Texture;
 import ru.endlesscode.rpginventory.misc.config.Config;
 import ru.endlesscode.rpginventory.misc.serialization.Serialization;
+import ru.endlesscode.rpginventory.mysql.MysqlConn;
 import ru.endlesscode.rpginventory.utils.FileUtils;
 import ru.endlesscode.rpginventory.utils.ItemUtils;
 import ru.endlesscode.rpginventory.utils.Log;
@@ -163,6 +164,38 @@ public class BackpackManager {
         Backpack backpack;
         String bpUid = ItemUtils.getTag(bpItem, ItemUtils.BACKPACK_UID_TAG);
         UUID uuid = bpUid.isEmpty() ? null : UUID.fromString(bpUid);
+
+        if (RPGInventory.getInstance().onMysql()) {
+            if (!MysqlConn.checkNull(MysqlConn.TableBackpack, bpUid)) {
+                String temp = MysqlConn.getData(MysqlConn.TableBackpack, bpUid);
+                Map.Entry<String, String> data = new Map.Entry<String, String>() {
+                    @Override
+                    public String getKey() {
+                        return bpUid;
+                    }
+
+                    @Override
+                    public String getValue() {
+                        return temp;
+                    }
+
+                    @Override
+                    public String setValue(String value) {
+                        return null;
+                    }
+                };
+                try {
+                    Backpack backpack1 = Serialization.loadBackpack(data);
+                    if (backpack1 == null || backpack1.isOverdue()) {
+                        MysqlConn.delete(MysqlConn.TableBackpack, data.getKey());
+                    } else {
+                        BACKPACKS.put(backpack1.getUniqueId(), backpack1);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
         if (!BACKPACKS.containsKey(uuid)) {
             if (uuid == null) {
                 backpack = type.createBackpack();
@@ -170,7 +203,6 @@ public class BackpackManager {
             } else {
                 backpack = type.createBackpack(uuid);
             }
-
             BACKPACKS.put(backpack.getUniqueId(), backpack);
         } else {
             backpack = BACKPACKS.get(uuid);
@@ -185,14 +217,72 @@ public class BackpackManager {
         return BACKPACK_TYPES.get(bpId);
     }
 
-    public static void saveBackpacks() {
-        Path folder = RPGInventory.getInstance().getDataPath().resolve("backpacks");
-
+    public static void saveBackpacks(UUID uuid) {
         try {
-            Files.createDirectories(folder);
-            for (Map.Entry<UUID, Backpack> entry : BACKPACKS.entrySet()) {
-                Path bpFile = folder.resolve(entry.getKey().toString() + ".bp");
-                Serialization.save(entry.getValue(), bpFile);
+            Backpack backpack = BACKPACKS.get(uuid);
+            if (backpack != null) {
+                if (RPGInventory.getInstance().onMysql()) {
+                    String data = Serialization.save(backpack);
+                    if (MysqlConn.checkNull(MysqlConn.TableBackpack, uuid.toString())) {
+                        MysqlConn.setData(MysqlConn.TableBackpack, uuid.toString(), data);
+                    } else {
+                        MysqlConn.update(MysqlConn.TableBackpack, uuid.toString(), data);
+                    }
+                } else {
+                    Path folder = RPGInventory.getInstance().getDataPath().resolve("backpacks");
+                    Files.createDirectories(folder);
+                    Path bpFile = folder.resolve(uuid.toString() + ".bp");
+                    Serialization.save(backpack, bpFile);
+                }
+            }
+        } catch (IOException | NullPointerException e) {
+            Log.w(e, "Error on backpack save");
+        }
+    }
+
+    public static void saveBackpacks(String uuid) {
+        try {
+            UUID uuid1 = UUID.fromString(uuid);
+            Backpack backpack = BACKPACKS.get(uuid1);
+            if (backpack != null) {
+                if (RPGInventory.getInstance().onMysql()) {
+                    String data = Serialization.save(backpack);
+                    if (MysqlConn.checkNull(MysqlConn.TableBackpack, uuid)) {
+                        MysqlConn.setData(MysqlConn.TableBackpack, uuid, data);
+                    } else {
+                        MysqlConn.update(MysqlConn.TableBackpack, uuid, data);
+                    }
+                } else {
+                    Path folder = RPGInventory.getInstance().getDataPath().resolve("backpacks");
+                    Files.createDirectories(folder);
+                    Path bpFile = folder.resolve(uuid + ".bp");
+                    Serialization.save(backpack, bpFile);
+                }
+            }
+        } catch (IOException | NullPointerException e) {
+            Log.w(e, "Error on backpack save");
+        }
+    }
+
+    public static void saveBackpacks() {
+        try {
+            if (RPGInventory.getInstance().onMysql()) {
+                for (Map.Entry<UUID, Backpack> entry : BACKPACKS.entrySet()) {
+                    String data = Serialization.save(entry.getValue());
+                    String uuid = entry.getKey().toString();
+                    if (MysqlConn.checkNull(MysqlConn.TableBackpack, uuid)) {
+                        MysqlConn.setData(MysqlConn.TableBackpack, uuid, data);
+                    } else {
+                        MysqlConn.update(MysqlConn.TableBackpack, uuid, data);
+                    }
+                }
+            } else {
+                Path folder = RPGInventory.getInstance().getDataPath().resolve("backpacks");
+                Files.createDirectories(folder);
+                for (Map.Entry<UUID, Backpack> entry : BACKPACKS.entrySet()) {
+                    Path bpFile = folder.resolve(entry.getKey().toString() + ".bp");
+                    Serialization.save(entry.getValue(), bpFile);
+                }
             }
         } catch (IOException | NullPointerException e) {
             Log.w(e, "Error on backpack save");
@@ -201,14 +291,33 @@ public class BackpackManager {
 
     private static void loadBackpacks() {
         try {
-            Path folder = RPGInventory.getInstance().getDataPath().resolve("backpacks");
-            Files.createDirectories(folder);
+            if (RPGInventory.getInstance().onMysql()) {
+                Map<String, String> list = MysqlConn.getAllData(MysqlConn.TableBackpack);
+                if (list != null) {
+                    for (Map.Entry<String, String> item : list.entrySet()) {
+                        BackpackManager.tryToLoadBackpack(item);
+                    }
+                }
+            } else {
+                Path folder = RPGInventory.getInstance().getDataPath().resolve("backpacks");
+                Files.createDirectories(folder);
 
-            Files.list(folder)
-                    .filter((file) -> Files.isRegularFile(file) && file.toString().endsWith(".bp"))
-                    .forEach(BackpackManager::tryToLoadBackpack);
+                Files.list(folder)
+                        .filter((file) -> Files.isRegularFile(file) && file.toString().endsWith(".bp"))
+                        .forEach(BackpackManager::tryToLoadBackpack);
+            }
         } catch (IOException e) {
             Log.w(e, "Error on backpack loading");
+        }
+    }
+
+    private static void tryToLoadBackpack(@NotNull Map.Entry<String, String> data) {
+        try {
+            loadBackpack(data);
+        } catch (IOException | InvalidConfigurationException e) {
+            Log.w(e);
+            Log.s("Error on loading backpack {0}", data.getKey());
+            Log.s("Will be created new backpack. Old file was renamed.");
         }
     }
 
@@ -220,6 +329,15 @@ public class BackpackManager {
             FileUtils.resolveException(path);
             Log.s("Error on loading backpack {0}", path.getFileName().toString());
             Log.s("Will be created new backpack. Old file was renamed.");
+        }
+    }
+
+    private static void loadBackpack(@NotNull Map.Entry<String, String> data) throws IOException, InvalidConfigurationException {
+        Backpack backpack = Serialization.loadBackpack(data);
+        if (backpack == null || backpack.isOverdue()) {
+            MysqlConn.delete(MysqlConn.TableBackpack, data.getKey());
+        } else {
+            BACKPACKS.put(backpack.getUniqueId(), backpack);
         }
     }
 

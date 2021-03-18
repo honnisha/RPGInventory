@@ -24,6 +24,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
+import ru.endlesscode.rpginventory.RPGInventory;
 import ru.endlesscode.rpginventory.inventory.InventoryManager;
 import ru.endlesscode.rpginventory.misc.config.Config;
 import ru.endlesscode.rpginventory.utils.Log;
@@ -57,6 +58,10 @@ public class Backpack implements ConfigurationSerializable {
         this.id = uuid;
         this.backpackType = backpackType;
         this.contents = new ItemStack[backpackType.getSize()];
+    }
+
+    public UUID getId() {
+        return id;
     }
 
     @SuppressWarnings("unused") // Should be implemented because of ConfigurationSerializable

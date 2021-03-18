@@ -391,4 +391,5 @@ public class PlayerWrapper implements InventoryHolder {
     InventorySnapshot createSnapshot() {
         return InventorySnapshot.create(this);
     }
+
 }

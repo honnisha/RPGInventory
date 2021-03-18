@@ -49,6 +49,7 @@ import ru.endlesscode.rpginventory.misc.Updater;
 import ru.endlesscode.rpginventory.misc.config.Config;
 import ru.endlesscode.rpginventory.misc.config.ConfigUpdater;
 import ru.endlesscode.rpginventory.misc.serialization.Serialization;
+import ru.endlesscode.rpginventory.mysql.MysqlConn;
 import ru.endlesscode.rpginventory.pet.PetManager;
 import ru.endlesscode.rpginventory.resourcepack.ResourcePackModule;
 import ru.endlesscode.rpginventory.utils.Log;
@@ -72,6 +73,11 @@ public class RPGInventory extends PluginLifecycle {
     private boolean placeholderApiHooked = false;
     private boolean myPetHooked = false;
     private ResourcePackModule resourcePackModule = null;
+    private boolean mysql = false;
+
+    public boolean onMysql() {
+        return mysql;
+    }
 
     public static RPGInventory getInstance() {
         return instance;
@@ -124,6 +130,12 @@ public class RPGInventory extends PluginLifecycle {
         Config.init(this);
     }
 
+    public void closeMysql() {
+        mysql = false;
+        Config.getConfig().set("mysql.enable", false);
+        Config.save();
+    }
+
     @Override
     public void onEnable() {
         this.updateConfig();
@@ -131,6 +143,10 @@ public class RPGInventory extends PluginLifecycle {
         language = new FileLanguage(this);
 
         Serialization.registerTypes();
+
+        if (mysql) {
+            MysqlConn.start();
+        }
 
         if (!this.checkRequirements()) {
             this.getPluginLoader().disablePlugin(this);
@@ -173,6 +189,7 @@ public class RPGInventory extends PluginLifecycle {
             pm.registerEvents(new ElytraListener(), this);
         }
         this.resourcePackModule = ResourcePackModule.init(this);
+
 
         this.loadPlayers();
         this.startMetrics();
@@ -255,6 +272,7 @@ public class RPGInventory extends PluginLifecycle {
     public void onDisable() {
         BackpackManager.saveBackpacks();
         this.savePlayers();
+        MysqlConn.stop();
     }
 
     private void startMetrics() {
@@ -348,6 +366,8 @@ public class RPGInventory extends PluginLifecycle {
             Config.getConfig().set("version", version.toString());
             Config.save();
         }
+
+        mysql = Config.getConfig().getBoolean("mysql.enable", false);
     }
 
     @NotNull
