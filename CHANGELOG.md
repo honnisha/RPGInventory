@@ -12,6 +12,36 @@ X changes total
 ### Other (X changes)
 -->
 
+## [Unreleased]
+
+## [2.4.0-rc1] (2021-02-14)
+
+### Mimic support
+
+> Now you should install [Mimic](https://www.spigotmc.org/resources/82515/) to use RPGInventory.
+
+Mimic automatically detects classes and levels plugins that you use and RPGInventory will use it for items and slots requirements.
+All supported level and class systems available at [this page](https://github.com/EndlessCodeGroup/Mimic/tree/develop/mimic-bukkit#supported-implementations).
+With Mimic you can add support of own levels/classes plugin. 
+
+Removed `level-system` and `class-system` options from config.
+Option `slots.level.spend` works for any level system.
+
+Added `RPGInventoryItemsRegistry`.
+You can get RPGInv items using command:
+```
+/mimic items give <player> rpginventory:<item id>
+```
+
+### Added
+
+- Validation of slot IDs on slots initialization
+- Validation of allowed and denied items on slots initialization
+
+### Fixed
+
+- Dupe when press `F` on item (#168)
+
 ## 2.3.2 (2020-06-30)
 
 #### Custom Model Data
@@ -185,3 +215,6 @@ By the way, NETHERITE tools and armors are already in default configs :)
 - Updated Skills integration.
 - Updated MyPet integration.
 - bStats instead of MCStats.
+
+[Unreleased]: https://github.com/EndlessCodeGroup/RPGInventory/compare/v2.4.0-rc1...develop
+[2.4.0-RC1]: https://github.com/EndlessCodeGroup/RPGInventory/compare/v2.3.2...v2.4.0-rc1
