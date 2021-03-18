@@ -109,7 +109,6 @@ dependencies {
     implementation("ru.endlesscode.inspector:sentry-bukkit:$inspectorVersion")
     implementation('com.comphenix.packetwrapper:PacketWrapper:1.13-R0.1-SNAPSHOT')
     implementation('org.bstats:bstats-bukkit-lite:1.5')
-    implementation('mysql:mysql-connector-java:8.0.23')
     testImplementation('junit:junit:4.12')
     testImplementation('org.mockito:mockito-core:3.2.0')
 }

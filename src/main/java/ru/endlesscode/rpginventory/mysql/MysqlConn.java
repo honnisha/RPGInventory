@@ -53,7 +53,7 @@ public class MysqlConn {
 
     public static void start() {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
+            Class.forName("com.mysql.jdbc.Driver");
             if (connect()) {
                     RPGInventory.getInstance().getLogger().info("MySQL connection succeeded.");
                 checkTable();
