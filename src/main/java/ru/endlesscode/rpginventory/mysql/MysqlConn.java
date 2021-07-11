@@ -1,6 +1,7 @@
 package ru.endlesscode.rpginventory.mysql;
 
 import ru.endlesscode.rpginventory.RPGInventory;
+import ru.endlesscode.rpginventory.utils.Log;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -39,12 +40,10 @@ public class MysqlConn {
             String PORT = RPGInventory.getInstance().getConfig().getString("mysql.port", "3306");
             String DATABASE = RPGInventory.getInstance().getConfig().getString("mysql.database", "3306");
 
-            conn = DriverManager.getConnection(DB_URL.replace("{0}", IP)
-                    .replace("{1}", PORT)
-                    .replace("{2}", DATABASE), USER, PASS);
+            conn = DriverManager.getConnection(DB_URL.replace("{0}", IP).replace("{1}", PORT).replace("{2}", DATABASE), USER, PASS);
+            Log.i(String.format("Connected to mysql %s:%s database: %s user: %s", IP, PORT, DATABASE, USER));
             return true;
         } catch (Exception e) {
-            RPGInventory.getInstance().getLogger().warning("MySQL connection error.");
             RPGInventory.getInstance().closeMysql();
             e.printStackTrace();
         }
@@ -55,10 +54,10 @@ public class MysqlConn {
         try {
             Class.forName("com.mysql.jdbc.Driver");
             if (connect()) {
-                    RPGInventory.getInstance().getLogger().info("MySQL connection succeeded.");
+                Log.i("MySQL connection succeeded.");
                 checkTable();
             } else {
-                RPGInventory.getInstance().getLogger().warning("MySQL connection failed.");
+                Log.w("MySQL connection failed.");
                 RPGInventory.getInstance().closeMysql();
             }
         } catch (Exception e) {
@@ -78,8 +77,8 @@ public class MysqlConn {
     }
 
     private static void checkTable() {
+        String sql = String.format("show tables like '%s';", TableInventory);
         try {
-            String sql = "show tables like '" + TableInventory + "';";
             Statement stmt = conn.createStatement();
             ResultSet resultSet = stmt.executeQuery(sql);
             if (!resultSet.isBeforeFirst()) {
@@ -98,7 +97,8 @@ public class MysqlConn {
             if (reconnect()) {
                 checkTable();
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to check MySQL table.");
+            Log.w("Failed to check MySQL table.");
+            Log.w(String.format("sql: %s", sql));
             e.printStackTrace();
         }
     }
@@ -107,10 +107,11 @@ public class MysqlConn {
         synchronized (lock) {
             try {
                 if (conn == null || conn.isClosed() || conn.isReadOnly()) {
+                    Log.i("Reconnected.");
                     return connect();
                 }
             } catch (Exception e) {
-                RPGInventory.getInstance().getLogger().warning("Failed to reconnect MySQL.");
+                Log.w("Failed to reconnect MySQL.");
                 RPGInventory.getInstance().closeMysql();
                 e.printStackTrace();
                 return false;
@@ -119,25 +120,26 @@ public class MysqlConn {
         }
     }
 
-    private static void createTable(String name, String text) {
+    private static void createTable(String name, String comment) {
         try {
             Statement stmt = conn.createStatement();
-            String sql = Table_SQL.replace("{0}", name).replace("{1}", text);
+            String sql = Table_SQL.replace("{0}", name).replace("{1}", comment);
             stmt.execute(sql);
             stmt.close();
+            Log.i(String.format("Table %s created; comment: %s", name, comment));
         } catch (Exception e) {
             if (reconnect()) {
-                createTable(name, text);
+                createTable(name, comment);
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to create MySQL table.");
+            Log.w("Failed to create MySQL table.");
             e.printStackTrace();
         }
     }
 
     public static boolean checkNull(String table, String uuid) {
         boolean data = false;
+        String sql = SELECT_SQL.replace("{0}", table).replace("{1}", uuid);
         try {
-            String sql = SELECT_SQL.replace("{0}", table).replace("{1}", uuid);
             Statement stmt = conn.createStatement();
             ResultSet resultSet = stmt.executeQuery(sql);
             if (!resultSet.isBeforeFirst()) {
@@ -149,40 +151,40 @@ public class MysqlConn {
             if (reconnect()) {
                 return checkNull(table, uuid);
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to check player data in MySQL.");
+            Log.w(String.format("Failed to check player data in MySQL from table %s.", table));
+            Log.w(String.format("sql: %s", sql));
             e.printStackTrace();
         }
         return data;
     }
 
-    public static void setData(String table, String uuid, String temp) {
+    public static void setData(String table, String uuid, String data) {
+        String sql = INSERT_SQL.replace("{0}", table).replace("{1}", uuid).replace("{2}", data);
         try {
-            String sql = INSERT_SQL.replace("{0}", table)
-                    .replace("{1}", uuid).replace("{2}", temp);
             Statement stmt = conn.createStatement();
             stmt.execute(sql);
             stmt.close();
         } catch (Exception e) {
             if (reconnect()) {
-                setData(table, uuid, temp);
+                setData(table, uuid, data);
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to insert player data in MySQL.");
+            Log.w(String.format("Failed to insert player data in MySQL; table: %s; uuid: %s; data: %s", table, uuid, data));
+            Log.w(String.format("sql: %s", sql));
             e.printStackTrace();
         }
     }
 
-    public static void update(String table, String uuid, String temp) {
+    public static void update(String table, String uuid, String data) {
         try {
-            String sql = UPDATE_SQL.replace("{0}", table)
-                    .replace("{1}", temp).replace("{2}", uuid);
+            String sql = UPDATE_SQL.replace("{0}", table).replace("{1}", data).replace("{2}", uuid);
             Statement stmt = conn.createStatement();
             stmt.execute(sql);
             stmt.close();
         } catch (Exception e) {
             if (reconnect()) {
-                update(table, uuid, temp);
+                update(table, uuid, data);
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to update player data in MySQL.");
+            Log.w(String.format("Failed to update player data in MySQL; table: %s; uuid: %s; data: %s", table, uuid, data));
             e.printStackTrace();
         }
     }
@@ -202,7 +204,7 @@ public class MysqlConn {
             if (reconnect()) {
                 return getData(table, uuid);
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to get player data in MySQL.");
+            Log.w(String.format("Failed to get player data in MySQL; table: %s; uuid: %s", table, uuid));
             e.printStackTrace();
         }
         return null;
@@ -226,7 +228,7 @@ public class MysqlConn {
             if (reconnect()) {
                 return getAllData(table);
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to get all player data in MySQL.");
+            Log.w(String.format("Failed to get all player data in MySQL; table: %s", table));
             e.printStackTrace();
         }
         return null;
@@ -243,7 +245,7 @@ public class MysqlConn {
             if (reconnect()) {
                 delete(table, uuid);
             }
-            RPGInventory.getInstance().getLogger().warning("Failed to delete player data in MySQL.");
+            Log.w(String.format("Failed to delete player data in MySQL; table: %s", table));
             e.printStackTrace();
         }
     }
