@@ -22,6 +22,7 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.permission.Permission;
 import org.bstats.bukkit.MetricsLite;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -132,9 +133,7 @@ public class RPGInventory extends PluginLifecycle {
     }
 
     public void closeMysql() {
-        mysql = false;
-        Config.getConfig().set("mysql.enable", false);
-        Config.save();
+        Bukkit.broadcastMessage(Config.getConfig().getString("mysql-error", String.format("%sDatabase error: please contact administrator", ChatColor.RED)));
     }
 
     @Override
@@ -366,6 +365,7 @@ public class RPGInventory extends PluginLifecycle {
         }
 
         mysql = Config.getConfig().getBoolean("mysql.enable", false);
+        Log.i(String.format("Mysql enable: %s", mysql));
     }
 
     @NotNull

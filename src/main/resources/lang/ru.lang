@@ -56,3 +56,7 @@ stat.jump: &9Прыжок: &7{0}
 backpack.desc: &8&oПоместите в слот рюкзака и нажмите &fПКМ
 backpack.size: &aРазмер: &7{0}
 backpack.limit: &cУ вас не может быть рюкзаков больше чем {0}!
+
+error.item-empty: '&cПредмет не возможно использовать'
+error.item-denied: '&cПредмет запрещён для этого слота'
+error.item-not-allowed: '&cПредмет не разрешён для этого слота'

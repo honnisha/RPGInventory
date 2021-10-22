@@ -177,7 +177,7 @@ public class ItemUtils {
     public static int getTextureData(@NotNull ItemStack itemStack) {
         ItemMeta meta = itemStack.getItemMeta();
         if (meta == null) {
-            return 0;
+            return -1;
         }
 
         int data;
@@ -186,7 +186,7 @@ public class ItemUtils {
         } else if (meta.hasCustomModelData()) {
             data = meta.getCustomModelData();
         } else {
-            data = 0;
+            data = -1;
         }
         return data;
     }

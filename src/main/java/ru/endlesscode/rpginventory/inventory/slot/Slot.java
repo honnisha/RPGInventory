@@ -18,11 +18,15 @@
 
 package ru.endlesscode.rpginventory.inventory.slot;
 
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.endlesscode.rpginventory.RPGInventory;
 import ru.endlesscode.rpginventory.item.Texture;
 import ru.endlesscode.rpginventory.utils.InventoryUtils;
 import ru.endlesscode.rpginventory.utils.ItemUtils;
@@ -32,6 +36,7 @@ import ru.endlesscode.rpginventory.utils.StringUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Created by OsipXD on 05.09.2015
@@ -111,6 +116,8 @@ public class Slot {
     }
 
     private static boolean searchItem(List<String> materialList, @NotNull ItemStack itemStack) {
+        Integer itemData = ItemUtils.getTextureData(itemStack);
+
         for (String material : materialList) {
             String[] data = material.split(":");
 
@@ -118,15 +125,14 @@ public class Slot {
                 return true;
             }
 
-            if (!itemStack.getType().name().equals(data[0])) {
+            if (!itemStack.getType().name().equalsIgnoreCase(data[0])) {
                 continue;
             }
 
-            if (data.length > 1) {
+            if (itemData >= 0 && data.length > 1) {
                 String[] borders = data[1].split("-");
-                int itemTextureData = ItemUtils.getTextureData(itemStack);
 
-                if (borders.length == 1 && itemTextureData != Integer.parseInt(data[1])) {
+                if (borders.length == 1 && itemData != Integer.parseInt(data[1])) {
                     continue;
                 } else if (borders.length == 2) {
                     int min = Integer.parseInt(borders[0]);
@@ -138,12 +144,11 @@ public class Slot {
                         min = temp;
                     }
 
-                    if (itemTextureData < min || itemTextureData > max) {
+                    if (itemData < min || itemData > max) {
                         continue;
                     }
                 }
             }
-
             return true;
         }
 
@@ -163,8 +168,22 @@ public class Slot {
         return this.slotIds.contains(slot);
     }
 
+    public boolean isValidItem(@Nullable ItemStack itemStack, Optional<Player> notifyPlayer) {
+        if (!ItemUtils.isNotEmpty(itemStack)) {
+            notifyPlayer.ifPresent(player -> player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(RPGInventory.getLanguage().getMessage("error.item-empty"))));
+            return false;
+        } else if (this.isDenied(itemStack)) {
+            notifyPlayer.ifPresent(player -> player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(RPGInventory.getLanguage().getMessage("error.item-denied"))));
+            return false;
+        } else if (!this.isAllowed(itemStack)) {
+            notifyPlayer.ifPresent(player -> player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(RPGInventory.getLanguage().getMessage("error.item-not-allowed"))));
+            return false;
+        }
+        return true;
+    }
+
     public boolean isValidItem(@Nullable ItemStack itemStack) {
-        return ItemUtils.isNotEmpty(itemStack) && !this.isDenied(itemStack) && this.isAllowed(itemStack);
+        return this.isValidItem(itemStack, Optional.empty());
     }
 
     public boolean isFree() {

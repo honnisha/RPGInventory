@@ -58,6 +58,8 @@ import ru.endlesscode.rpginventory.utils.InventoryUtils;
 import ru.endlesscode.rpginventory.utils.ItemUtils;
 import ru.endlesscode.rpginventory.utils.PlayerUtils;
 
+import java.util.Optional;
+
 /**
  * Created by OsipXD on 18.09.2015
  * It is part of the RpgInventory.
@@ -321,7 +323,18 @@ public class InventoryListener implements Listener {
 
             if (slot.getSlotType() == Slot.SlotType.ACTIVE || slot.getSlotType() == Slot.SlotType.PASSIVE
                     || slot.getSlotType() == Slot.SlotType.SHIELD || slot.getSlotType() == Slot.SlotType.ELYTRA) {
-                event.setCancelled(!InventoryManager.validateUpdate(player, actionType, slot, cursor));
+
+                boolean valid = true;
+                if (actionType == ActionType.SET) {
+                    if (!slot.isValidItem(cursor, Optional.of(player))) {
+                        valid = false;
+                    }
+                    if (!ItemManager.allowedForPlayer(player, cursor, true)) {
+                        valid = false;
+                    }
+                }
+
+                event.setCancelled(!valid);
 
                 if ((slot.getSlotType() == Slot.SlotType.SHIELD || slot.getSlotType() == Slot.SlotType.ELYTRA) &&
                         actionType == ActionType.DROP) {

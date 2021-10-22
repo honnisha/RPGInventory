@@ -182,13 +182,9 @@ public class ItemManager {
             classedItem = ItemManager.getCustomItem(item);
         } else if (PetType.isPetItem(item)) {
             classedItem = PetManager.getPetFromItem(item);
-        } else {
-            return true;
-        }
+        } else return true;
 
-        if (classedItem == null) {
-            return true;
-        }
+        if (classedItem == null) return true;
 
         if (!PlayerUtils.checkLevel(player, classedItem.getLevel())) {
             if (notifyPlayer) {
@@ -196,7 +192,6 @@ public class ItemManager {
                         player, RPGInventory.getLanguage().getMessage("error.item.level", classedItem.getLevel())
                 );
             }
-
             return false;
         }
 
